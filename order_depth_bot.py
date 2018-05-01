@@ -140,17 +140,32 @@ def stop_loss(sig, entry, loss):
     return False
 
 
+def print_tick(sig, text):
+    r = requests.get(api_url + 'products/' + "LTC-USD" + "/book").json()
+    print("{:%Y-%m-%d %H:%M:%S}".format(datetime.datetime.now()) + " " + text + ": " + str(sig) + " bid: " +
+          r['bids'][0][0] + " ask: " + r['asks'][0][0])
+
+
+def check_fill_cancel(trade):
+    time.sleep(1)
+    order = requests.get(api_url + 'orders/' + trade['id'], auth=auth).json()
+    filled_quantity = float(order['filled_size'])
+    print("            fill size: " + str(filled_quantity))
+    entry = float(order['price'])
+    cancel = requests.delete(api_url + 'orders/', auth=auth).json()
+    print("      canceled: ")
+    print(cancel)
+    return filled_quantity, entry
+
+
 def order_depth_bot():
     while True:
         traded = False
         filled_quantity = 0.0
         entry = None
         exit_trade = None
-
-        r = requests.get(api_url + 'products/' + "LTC-USD" + "/book").json()
         signal = order_pressure(ratio, depth)
-        print("{:%Y-%m-%d %H:%M:%S}".format(datetime.datetime.now()) + " signal: " + str(signal) + " bid: " +
-              r['bids'][0][0] + " ask: " + r['asks'][0][0])
+        print_tick(signal, "signal")
 
         if abs(signal) > ratio and tightness() <= .011:
             print("Signal Activated.... " + "tightness: " + str(tightness()))
@@ -158,24 +173,15 @@ def order_depth_bot():
             new_signal = order_pressure(ratio, depth)
 
             while continued_signal(signal, new_signal, ratio) and not traded:
-                print("{:%Y-%m-%d %H:%M:%S}".format(datetime.datetime.now()) + " signal: " + str(new_signal) + " bid: "
-                      + r['bids'][0][0] + " ask: " + r['asks'][0][0])
-
+                print_tick(new_signal, "new signal")
                 new_nbbo_size = get_nbbo_size(new_signal)
+
                 if (new_nbbo_size < (nbbo_size/3) and new_nbbo_size < max_size) or (new_nbbo_size < small_size):
                     trade = execute_trade(signal, trade_size, product_id)
                     if trade is not None:
                         traded = True
-                        time.sleep(1)
-                        order = requests.get(api_url + 'orders/' + trade['id'], auth=auth).json()
-                        filled_quantity = float(order['filled_size'])
-                        print("            position size: " + str(filled_quantity))
-                        entry = float(order['price'])
-                        cancel = requests.delete(api_url + 'orders/', auth=auth).json()
-                        print("      canceled: ")
-                        print(cancel)
+                        filled_quantity, entry = check_fill_cancel(trade)
 
-                r = requests.get(api_url + 'products/' + "LTC-USD" + "/book").json()
                 new_signal = order_pressure(ratio, depth)
                 time.sleep(1)
 
@@ -190,20 +196,17 @@ def order_depth_bot():
 
                 if filled_quantity < .01:
                     print("       Locked in Profit! Woo")
-                    print("      " + order['side'] + " " + order['size'] + " " + order['product_id'] + " at " + str(order['price']))
+                    print("      " + order['side'] + " " + order['size'] + " " + order['product_id'] +
+                          " at " + str(order['price']))
                     print(order)
 
                 if stop_loss(signal, entry, loss) and filled_quantity > .01:
                     print("       Stop Loss Triggered")
                     trade = execute_trade(-signal, filled_quantity, product_id)
                     if trade is not None:
-                        time.sleep(1)
-                        order = requests.get(api_url + 'orders/' + trade['id'], auth=auth).json()
-                        filled_quantity = filled_quantity - float(order['filled_size'])
-                        print("            position size: " + str(filled_quantity))
-                        cancel = requests.delete(api_url + 'orders/', auth=auth).json()
-                        print("      canceled: ")
-                        print(cancel)
+                        exited_amt, prc = check_fill_cancel(trade)
+                        filled_quantity = filled_quantity - exited_amt
+                        print("      Position Size: " + str(filled_quantity))
 
             if traded:
                 cancel = requests.delete(api_url + 'orders/', auth=auth).json()
@@ -223,6 +226,7 @@ if __name__ == "__main__":
     gain = .08
     loss = .03
     api_url = 'https://api.gdax.com/'
-    auth = CoinbaseExchangeAuth()
+
+    auth = CoinbaseExchangeAuth(api_key, secret_key, passphrase)
 
     order_depth_bot()
