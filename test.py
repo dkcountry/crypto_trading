@@ -36,43 +36,44 @@ def get_ohlc(pair, start, end):
         return pd.DataFrame(r.json())
 
 
-api_url = 'https://api.gdax.com/'
-start = datetime.datetime(2018,4,30,19)
-end = datetime.datetime(2018,5,1)
+if __name__ == "__main__":
+    api_url = 'https://api.gdax.com/'
+    start = datetime.datetime(2018,4,30,19)
+    end = datetime.datetime(2018,5,1)
 
-order = {
-    'start': date_to_iso(start),
-    'end': date_to_iso(end),
-    'granularity': 60
-}
+    order = {
+        'start': date_to_iso(start),
+        'end': date_to_iso(end),
+        'granularity': 60
+    }
 
-ltc = requests.get(api_url + 'products/LTC-USD/candles', order)
-btc = requests.get(api_url + 'products/BTC-USD/candles', order)
-
-
-col = ['timestamp', 'open', 'high', 'low', 'close', 'volume']
-ltc = pd.DataFrame(ltc.json(), columns=col)
-btc = pd.DataFrame(btc.json(), columns=col)
-
-ltc['chg'] = ltc.close/ltc.close.shift(1) - 1
-btc['chg'] = btc.close/btc.close.shift(1) - 1
-
-ltc_close = ltc[['timestamp', 'chg']]
-btc_l1 = btc[['chg', 'volume']].shift(1)
-btc_l2 = btc[['chg', 'volume']].shift(2)
-btc_l1.columns = ['btc_chg_l1', 'btc_vol_l1']
-btc_l2.columns = ['btc_chg_l2', 'btc_vol_l2']
+    ltc = requests.get(api_url + 'products/LTC-USD/candles', order)
+    btc = requests.get(api_url + 'products/BTC-USD/candles', order)
 
 
-df = pd.concat([ltc_close, btc_l1, btc_l2], axis=1)
-df = df[3:]
-train = df[:200]
-test = df[200:]
+    col = ['timestamp', 'open', 'high', 'low', 'close', 'volume']
+    ltc = pd.DataFrame(ltc.json(), columns=col)
+    btc = pd.DataFrame(btc.json(), columns=col)
 
-x_train = df[['btc_chg_l1', 'btc_vol_l1', 'btc_chg_l2', 'btc_vol_l2']]
-y_train = df['chg']
+    ltc['chg'] = ltc.close/ltc.close.shift(1) - 1
+    btc['chg'] = btc.close/btc.close.shift(1) - 1
 
-ols = linear_model.LinearRegression()
-model = ols.fit(x_train, y_train)
+    ltc_close = ltc[['timestamp', 'chg']]
+    btc_l1 = btc[['chg', 'volume']].shift(1)
+    btc_l2 = btc[['chg', 'volume']].shift(2)
+    btc_l1.columns = ['btc_chg_l1', 'btc_vol_l1']
+    btc_l2.columns = ['btc_chg_l2', 'btc_vol_l2']
 
-print(ols.score(x_train, y_train))
+
+    df = pd.concat([ltc_close, btc_l1, btc_l2], axis=1)
+    df = df[3:]
+    train = df[:200]
+    test = df[200:]
+
+    x_train = df[['btc_chg_l1', 'btc_vol_l1', 'btc_chg_l2', 'btc_vol_l2']]
+    y_train = df['chg']
+
+    ols = linear_model.LinearRegression()
+    model = ols.fit(x_train, y_train)
+
+    print(ols.score(x_train, y_train))
