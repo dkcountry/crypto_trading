@@ -102,7 +102,7 @@ def execute_exit_trade(sig, size, product, entry, gain):
 
     order = {
         'size': size,
-        'price': price,
+        'price': round(price, 2),
         'side': side,
         'product_id': product,
         'post_only': True
@@ -147,12 +147,12 @@ def print_tick(sig, text):
 
 
 def check_fill_cancel(trade):
-    time.sleep(1)
+    time.sleep(.5)
     order = requests.get(api_url + 'orders/' + trade['id'], auth=auth).json()
     filled_quantity = float(order['filled_size'])
     print("            fill size: " + str(filled_quantity))
     entry = float(order['price'])
-    cancel = requests.delete(api_url + 'orders/', auth=auth).json()
+    cancel = requests.delete(api_url + 'orders/' + trade['id'], auth=auth).json()
     print("      canceled: ")
     print(cancel)
     return filled_quantity, entry
@@ -183,14 +183,15 @@ def order_depth_bot():
                         filled_quantity, entry = check_fill_cancel(trade)
 
                 new_signal = order_pressure(ratio, depth)
-                time.sleep(1)
+                time.sleep(.5)
 
             while filled_quantity > 0.01:
                 if exit_trade is None:
                     print("        Exiting Position...")
                     exit_trade = execute_exit_trade(signal, filled_quantity, product_id, entry, gain)
+                    print(exit_trade)
                 if exit_trade is not None:
-                    time.sleep(1)
+                    time.sleep(.5)
                     order = requests.get(api_url + 'orders/' + exit_trade['id'], auth=auth).json()
                     filled_quantity = filled_quantity - float(order['filled_size'])
 
@@ -220,13 +221,16 @@ if __name__ == "__main__":
     ratio = 5
     depth = 5
     max_size = 4
-    small_size = 1
-    trade_size = .1
+    small_size = 1.3
+    trade_size = .15
     product_id = 'LTC-USD'
     gain = .08
-    loss = .03
+    loss = .04
     api_url = 'https://api.gdax.com/'
 
     auth = CoinbaseExchangeAuth(api_key, secret_key, passphrase)
 
     order_depth_bot()
+
+
+

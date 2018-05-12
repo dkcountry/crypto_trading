@@ -87,7 +87,7 @@ if __name__ == "__main__":
     plt.scatter(x_train, y_train)
 
     "Filter out signal noise"
-    transform = signal[(abs(signal.signal) < 500) & (abs(signal.chg) > .01)]
+    transform = signal[(abs(signal.signal) < 500) & (abs(signal.chg) > .00)]
     x_train = transform.signal.reshape(-1,1)
     y_train = transform.chg
 
