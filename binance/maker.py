@@ -10,11 +10,14 @@ class MarketMaker(object):
         self.client = Client(api_key, api_secret)
         self.ticker = ticker
         self.num_levels = num_levels
+
         self.position = 0
         self.avg_price = np.nan
         self.fees = 0
         self.revenue = 0
+
         self.open_orders = pd.DataFrame()
+        self.all_orders = pd.DataFrame()
 
     def fetch_all_orders(self):
         """Get all open orders and save to df"""
@@ -38,10 +41,29 @@ class MarketMaker(object):
             result = self.client.cancel_order(symbol=self.ticker, orderId=orderId)
         self.fetch_all_orders()
 
+    def place_one_side(self, side):
+        mid = self.set_mid_price()
+        if side.upper() == 'BUY':
+            best = mid - 0.000005
+            for i in range(self.num_levels):
+                order = self.client.order_limit_buy(
+                    symbol=self.ticker,
+                    quantity=0.16,
+                    price=round(best-0.000003*i, 6))
+
+        if side.upper() == 'SELL':
+            best = mid + 0.000005
+            for i in range(self.num_levels):
+                order = self.client.order_limit_sell(
+                    symbol=self.ticker,
+                    quantity=0.16,
+                    price=round(best+0.000003*i, 6))
+
 
 m = MarketMaker(api_key, api_secret, "NEOBTC", 3)
 
 if __name__ == "__main__":
+
 
     m = MarketMaker(api_key, api_secret, "NEOBTC", 3)
     print(m.set_mid_price())
