@@ -13,6 +13,7 @@ class MarketMaker(object):
         self.qty = qty
         self.edge = edge
         self.max_position = self.qty * 2
+        self.rounding_delta = 0.00001
 
         self.position = 0.0
         self.avg_price = 0.0
@@ -81,7 +82,7 @@ class MarketMaker(object):
             order = self.client.get_order(symbol=row['symbol'], orderId=row['orderId'])
             qty_diff = float(order['executedQty']) - float(row['executedQty'])
 
-            if qty_diff > .00001:
+            if qty_diff > self.rounding_delta:
                 print(qty_diff)
                 self.record_fill(qty_diff, float(order['price']), order['side'])
                 position_changed = True
@@ -131,7 +132,7 @@ class MarketMaker(object):
         """dynamically adjust orders"""
 
         # if a position change results in flat position, reset markets
-        if self.position == 0:
+        if abs(self.position) < self.rounding_delta:
             self.cancel_all()
             return
 
