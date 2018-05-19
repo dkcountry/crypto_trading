@@ -25,7 +25,7 @@ class MarketMaker(object):
 
         orders = self.client.get_open_orders(symbol=self.ticker)
         columns = ['symbol', 'orderId', 'price', 'origQty', 'executedQty', 'status', 'timeInForce',
-                   'type', 'side', 'isWorking']
+                   'type', 'side']
         o = pd.DataFrame([[x[col] for col in columns] for x in orders], columns=columns)
         self.open_orders = o
         self.format_open_orders()
@@ -87,14 +87,8 @@ class MarketMaker(object):
                 position_changed = True
                 self.open_orders = self.open_orders[self.open_orders.orderId != order['orderId']]
 
-                columns = ['symbol', 'orderId', 'price', 'origQty', 'executedQty', 'status', 'timeInForce',
-                           'type', 'side', 'isWorking']
                 if order['status'] not in ['FILLED', 'CANCELED']:
-                    mod_order = [order[col] for col in columns]
-                    mod_order = pd.Series(mod_order, index=columns)
-                    self.open_orders = self.open_orders.append(mod_order)
-                    self.format_open_orders()
-                    print(self.open_orders)
+                    self.add_single_order(order)
 
             if order['status'] in ['CANCELED']:
                 self.open_orders = self.open_orders[self.open_orders.orderId != order['orderId']]
@@ -102,6 +96,18 @@ class MarketMaker(object):
         print("{:%Y-%m-%d %H:%M:%S}".format(datetime.datetime.now()) + " " +
               "current position: " + str(self.position) + " avg fill price: " + str(self.avg_price))
         return position_changed
+
+    def add_single_order(self, order):
+        """append single order to open orders"""
+
+        columns = ['symbol', 'orderId', 'price', 'origQty', 'executedQty', 'status', 'timeInForce',
+                   'type', 'side']
+        new_order = [order[col] for col in columns]
+        new_order = pd.Series(new_order, index=columns)
+        self.new_order = new_order
+        self.open_orders = self.open_orders.append(new_order, ignore_index=True)
+        self.format_open_orders()
+        print(new_order)
 
     def record_fill(self, qty_diff, price, side):
         """handles updating self.position and self.avg_price"""
@@ -134,30 +140,28 @@ class MarketMaker(object):
         if least_agro_buy < (self.avg_price - 2.5*self.edge) and self.position <= self.max_position:
             order = self.open_orders[(self.open_orders.price == least_agro_buy)].iloc[0]
             cancel = self.client.cancel_order(symbol=self.ticker, orderId=order.orderId)
-            o = self.client.order_limit_buy(symbol=self.ticker, quantity=self.qty,
-                                            price=round(self.avg_price - 2*self.edge, 6))
-            print(o)
+            self.o = self.client.order_limit_buy(symbol=self.ticker, quantity=self.qty,
+                                                 price=round(self.avg_price - 2*self.edge, 6))
+            self.add_single_order(self.o)
 
         if pd.isna(least_agro_buy) and self.position <= self.max_position:
-            o = self.client.order_limit_buy(symbol=self.ticker, quantity=self.qty,
-                                            price=round(self.avg_price - 2 * self.edge, 6))
-            print(o)
+            self.o = self.client.order_limit_buy(symbol=self.ticker, quantity=self.qty,
+                                                 price=round(self.avg_price - 2 * self.edge, 6))
+            self.add_single_order(self.o)
 
         # handle sell orders
         least_agro_sell = self.open_orders[self.open_orders.side == 'SELL'].price.max()
         if least_agro_sell > (self.avg_price + 2.5*self.edge) and -self.position <= self.max_position:
             order = self.open_orders[(self.open_orders.price == least_agro_sell)].iloc[0]
             cancel = self.client.cancel_order(symbol=self.ticker, orderId=order.orderId)
-            o = self.client.order_limit_sell(symbol=self.ticker, quantity=self.qty,
-                                             price=round(self.avg_price + 2*self.edge, 6))
-            print(o)
+            self.o = self.client.order_limit_sell(symbol=self.ticker, quantity=self.qty,
+                                                  price=round(self.avg_price + 2*self.edge, 6))
+            self.add_single_order(self.o)
 
         if pd.isna(least_agro_sell) and -self.position <= self.max_position:
-            o = self.client.order_limit_sell(symbol=self.ticker, quantity=self.qty,
-                                            price=round(self.avg_price + 2 * self.edge, 6))
-            print(o)
-
-        self.fetch_all_orders()
+            self.o = self.client.order_limit_sell(symbol=self.ticker, quantity=self.qty,
+                                                  price=round(self.avg_price + 2 * self.edge, 6))
+            self.add_single_order(self.o)
 
     def set_init_market(self):
         """initialize orders"""
