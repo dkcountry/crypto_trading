@@ -68,5 +68,8 @@ class NeoBTCBot(MarketMaker):
 
 
 if __name__ == "__main__":
+    api_key = "fsNDqKbCrshonyrvbYC1G6WBTuZnrddNTuIH5sitQmdLYoEHSBOODPn02zexHBzP"
+    api_secret = "jbvF6nS8NKQ3Pk7HatqHmpoc6aDWdygqo3nkjph1o3wQbyNJU3vmkqnUnZJL9P94"
+
     m = NeoBTCBot(api_key, api_secret, "NEOBTC", 2, .16, 0.000005)
     m.run()
